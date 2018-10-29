@@ -1,7 +1,7 @@
 
 # coding: utf-8
 
-# In[31]:
+# In[130]:
 
 
 import numpy as np
@@ -108,18 +108,23 @@ class Kernel_calculator():
                 
         return sol
     
-    def fitting_kernel_formular(self,order):
+    def fitting_kernel_formular(self,order,upperbound = None):
         
         # Since matrix A in lineq_solver could be rank-deficient if xi is around 1/(2l), therefore we cannot directly use
         # the function lineq_solver to do the integration to find out the Fourier coefficients. But we are fortunate
         # enought to know the general symbolic expression for the result. Therefore, we do a formular fitting to avoid
         # the matrix being singular in lineq_solver
         
-        N = order+1  # number of coefficients in the formular that needs to be fitted
-        xi = np.linspace(0,1/(1+2**(order/2))/self.l,2*N) # the number of samples that I pick is 8N inside the interval, the upper bond may not be the best upper bond****
+        oorder = 2*int((order+1)/2) # tempory vairable for treating the odd number of order the same way as even number order
+        
+        N = oorder  # number of coefficients in the formular that needs to be fitted
+        
+        if upperbound == None:
+            xi = np.linspace(1/(1+2**(order/2))/self.l/2/N,1/(1+2**(order/2))/self.l,2*N) # the number of samples that I pick is 8N inside the interval, the upper bond may not be the best upper bond****
         # more comments: by some testing, the upper bond may even depend on the value of rhoh, rhos due to numerical accuracy
         # This sample picking process still needs a lot of improvement in order to be robust**************Right now it seems to work fine for rho=8000
-        
+        else:
+            xi = np.linspace(upperbound/self.l/2/N,upperbound/self.l,2*N)
         # Since we know the exact form of the formluar, we don't need optimization to do the fitting, we can simply solve
         # an overdetermined linear equations system.
         
@@ -131,64 +136,72 @@ class Kernel_calculator():
             
             kernel_sol = 0 # kernel_sol will be the exact result of the kernel calculated by lineq_solver
             
+            # extracting the final result of kernel from the solution of lineq_solver
             sol = self.lineq_solver(x,order)[0]
-            for k in range(1,order):
-                kernel_sol += (k+1)*(self.rhos/self.rhoh)*(sol[k+1]+sol[2*order+4+k])*(self.alpha*self.l)**k
-            
-            for k in range(1,order+1):
-                kernel_sol += (k+1)*(self.Es/self.Eh)*sol[order+2+k]*(self.beta*self.l)**k
-            
+            kernel_sol = sol[1]/(1-np.exp(-1j*2*np.pi*self.l*x))
             real_kernel_sol = kernel_sol.real
                 
             #assigning values to A              
-            for k in range(int(order/2+1)):
+            for k in range(int(oorder/2)):
                 A[i,k] = np.cos(2*np.pi*self.l*x*k)
             
-            for k in range(int(order/2)):
-                A[i,k+int(order/2)+1] = -np.cos(2*np.pi*self.l*x*k)*real_kernel_sol
+            for k in range(int(oorder/2)):
+                A[i,k+int(oorder/2)] = -np.cos(2*np.pi*self.l*x*k)*real_kernel_sol
             
-            b[i] = np.cos(2*np.pi*self.l*x*(order/2))*real_kernel_sol
+            b[i] = np.cos(2*np.pi*self.l*x*(oorder/2))*real_kernel_sol
         
         kernel_coeff = np.linalg.lstsq(A,b,rcond=-1) # use least square to sovle this overdetermine linear equations
         
         return kernel_coeff
     
-    def fourier_kernel_func(self,xi,order,n):
+    def frequency_kernel_func(self,xi,order,coeff,upperbound = None):
         
         # This is the function of plugging the kernel_coeff calculated by fitting_kernel_formular into the formular of
-        # kernel. And then times cos(2pi l xi) to prepare for the integration to calculate the fouriers coeffecients
-        # eventually
+        # kernel. this function is not combined with the function below for testing reasons
         
-        func = 0
-        temp = np.cos(2*np.pi*self.l*xi*(order/2)) # temporary variable for calculating the denominator
-        coeff = self.fitting_kernel_formular(order)[0]
-        for i in range(int(order/2)+1):
-            func += coeff[i]*np.cos(2*np.pi*self.l*xi*i) #calculating the numerator
+        numer = 0
+        oorder = 2*int((order+1)/2) # tempory vairable for treating the odd number of order the same way as even number order
+        temp = np.cos(2*np.pi*self.l*xi*(int(oorder/2))) # temporary variable for calculating the denominator
+        #coeff = self.fitting_kernel_formular(order,upperbound = upperbound)[0]
+        for i in range(int(oorder/2)):
+            numer += coeff[i]*np.cos(2*np.pi*self.l*xi*i) #calculating the numerator
         
-        for i in range(int(order/2)):
-            temp += coeff[i+int(order/2)+1]*np.cos(2*np.pi*self.l*xi*i) #calculating the denominator
+        for i in range(int(oorder/2)):
+            temp += coeff[i+int(order/2)]*np.cos(2*np.pi*self.l*xi*i) #calculating the denominator
             
-        return func/temp*np.cos(2*np.pi*n*self.l*xi)
+        return numer*(np.cos(2*np.pi*self.l*xi*1)-1)*2/temp
+    
+    def fourier_kernel_func(self,xi,order,n,coeff,upperbound = None):
+        
+        # this is the function of frequency_kernel_func timing cos(2pi l xi) to prepare for the integration to calculate the fouriers coeffecients
+        
+        
+        return self.frequency_kernel_func(xi,order,coeff,upperbound = None)*np.cos(2*np.pi*n*self.l*xi)
             
 
-    def discrete_kernel_calculator(self, order, n):
+    def discrete_kernel_calculator(self, order, n, upperbound = None):
         
         #integration to calculatet the discrete_kernel
         
-        discrete_kernel = integrate.quad(self.fourier_kernel_func,0,1/self.l, args=(order,n))
+        coeff = self.fitting_kernel_formular(order,upperbound = upperbound)[0] #first calculate the fitting coefficients
+        
+        discrete_kernel = integrate.quad(self.fourier_kernel_func,0,1/self.l, args=(order,n,coeff))
         
         return discrete_kernel
     
-    def plot_test(self,order,n):
+    def plot_test(self,order,upperbound = None):
         
         # This is used to plot for testing the fourier_kernel_func that needs to be integrated to get the discrete kernel.
         # If there are singularities in the plots, then some parameters in the fitting function have to be changed
         
-        x = np.linspace(0,1/self.l,1000)
-        size = np.size(x)
-        y = np.linspace(0,1/self.l,1000)
+        coeff = self.fitting_kernel_formular(order,upperbound = upperbound)[0] #first calculate the fitting coefficients
+        
+        size = 1000
+        x = np.linspace(0,1/self.l,size)  
+        y = np.linspace(0,1/self.l,size)
+        
         for i in range(size):
-            y[i] = self.fourier_kernel_func(x[i],order,n)/np.cos(2*np.pi*n*self.l*x[i])
+            y[i] = self.frequency_kernel_func(x[i],order,coeff,upperbound = upperbound)
         plt.plot(x,y)
         
     def kernel_generator(self,order,tolerance):
