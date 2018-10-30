@@ -16,6 +16,7 @@ Eh = 200e9
 Es = 5e9
 rhoh = 8000
 rhos = 8000
+rhoave = (rhoh+rhos)/2
 # geometric properties
 L = 1
 l = 0.02
@@ -43,7 +44,7 @@ kernelp *= normalizer
 tolerance = 1e-4 # the tolerance that determines how many discrete kernels that we need
 second_order_kernel = nonlocal_kernel.kernel_generator(2,tolerance)
 fourth_order_kernel = nonlocal_kernel.kernel_generator(4,tolerance)
-sixth_order_kernel = nonlocal_kernel.kernel_generator(6,tolerance)
+sixth_order_kernel = nonlocal_kernel.kernel_generator(3,tolerance)
 
 # this will be our displacement BC
 def displacement_load(t):
@@ -53,7 +54,7 @@ def displacement_load(t):
     load = P0*b0*t**6*(t-T)**6*(1-np.heaviside(t-T,0))
     return load
 
-nonlocal_kernel_result = sim1D(Eh,rhos,displacement_load,Ttotal,dt,Nnodes)
+nonlocal_kernel_result = sim1D(Eh,rhoave,displacement_load,Ttotal,dt,Nnodes)
 
 # calculating using second order nonlocal kernel
 u_2 = nonlocal_kernel_result.nonlocal_kernel_middisplacement(second_order_kernel)
@@ -130,7 +131,7 @@ def uplot(u1,u2,u3,u4,ureference,Ttotal,down,up):
     plt.tight_layout()
     
     lines = plt.subplot(2,2,4)
-    l1 = lines.plot(t2,u4,linewidth=1,label='Sixth order kernel')
+    l1 = lines.plot(t2,u4,linewidth=1,label='Third order kernel')
     l2 = lines.plot(treference,ureference,linewidth=1,label='FEM')
     plt.ylim(down,up)
     plt.setp(l1,linestyle='--')
@@ -146,5 +147,5 @@ def uplot(u1,u2,u3,u4,ureference,Ttotal,down,up):
 
 
 uplot(u_p,u_2,u_4,u_6,ureference,Ttotal*1e3,-30,10)
-plt.savefig('Kernel_comparison.eps',format='eps',dpi=1200)
+#plt.savefig('Kernel_comparison.eps',format='eps',dpi=1200)
 
