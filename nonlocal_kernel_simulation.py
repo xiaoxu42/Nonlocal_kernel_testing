@@ -1,13 +1,17 @@
 
 # coding: utf-8
 
-# In[8]:
 
 
 import numpy as np
+import cffi
+try:
+    from explicit_time_api import ffi, lib
+except ImportError:
+    print("Error importing lib")
+    pass
 
 
-# In[38]:
 
 
 class simulator_1D():
@@ -42,34 +46,15 @@ class simulator_1D():
         u = np.zeros((N,Tsteps))
         t = np.linspace(0,Ttotal,Tsteps)
         self.t = t
+        loadfunc_array = np.zeros(Tsteps) # array for load at each time step
     
-        # some arrays for storing velocity and acceleration  
-        ut1 = np.zeros(N)
-        ut2 = np.zeros(N)
-        utt = np.zeros(N)
-
-    
-        for tt in range(Tsteps-1):
-            for i in range(horizon,N-horizon):
-                temp = -kernel0*u[i,tt] # temporary variable
-            
-                for k in range(horizon):
-                    temp += kernel[k]*(u[i+k+1,tt]+u[i-k-1,tt])
-            
-                # use the explicit finite difference for time
-                utt[i] = E/rho*temp
-                ut2[i] = ut1[i] + dt*utt[i]
-                u[i,tt+1] = u[i,tt] + dt*(ut1[i]+ut2[i])/2
-                ut1[i] = ut2[i]
+        # generate the load_array by the given load_function(fixed at one end, Neumann BC at the other end)   
+        for tt in range(Tsteps):
+            loadfunc_array[tt] = loadfunc(t[tt])
         
-            # BC at the fixed end
-            for i in range(horizon):
-                u[i,tt+1]= -u[2*horizon-1-i,tt+1]
-        
-            # BC with displacement load
-            for i in range(N-horizon,N):
-                P = loadfunc(t[tt])
-                u[i,tt+1] = 2*P-u[2*(N-horizon)-1-i,tt+1]
+        # Use the CFFI to import the C code to do the simulation for all time steps by explicit time discretization 
+        lib.explicit_time(ffi.cast("double *", ffi.from_buffer(u)), N, Tsteps, kernel0, ffi.cast("double *", ffi.from_buffer(kernel)), horizon, E ,rho, dt, ffi.cast("double *", ffi.from_buffer(loadfunc_array)))
+         
     
         return u
     
