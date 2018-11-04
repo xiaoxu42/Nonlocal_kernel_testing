@@ -202,7 +202,12 @@ class Kernel_calculator():
         
         for i in range(size):
             y[i] = self.frequency_kernel_func(x[i],order,coeff,upperbound = upperbound)
-        plt.plot(x,y)
+
+        f = matplotlib.figure.Figure(figsize=(5,4),dpi=200)
+        a = f.add_subplot(111)
+        a.plot(x,y)
+
+        return f
         
     def kernel_generator(self,order,tolerance):
         
