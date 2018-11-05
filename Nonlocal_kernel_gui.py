@@ -92,39 +92,42 @@ class PageOne(tk.Frame):
         button2.grid(row=30,column= 1)
 
     def GenerateKernel(self):
-        order = int(self.e1.get())
-        tolerance = float(self.e2.get())
+        self.order = int(self.e1.get())
+        self.tolerance = float(self.e2.get())
         nonlocal_kernel = kc(200,5,8000,8000)
         # Pops out a new window newwin
         newwin = tk.Toplevel(self)
-        
+
         self.upperbound = None # This upperbound can be changed by user throught advanced setting
         
-        kernel = nonlocal_kernel.kernel_generator(order, tolerance,upperbound = self.upperbound)
-        # Display the resulf of discrete kenerl
+        kernel = nonlocal_kernel.kernel_generator(self.order, self.tolerance,upperbound = self.upperbound)
+        # Display the resulf of discrete kernel
         kernel_string = "Discrete Kernel:"
 
         for x in kernel:
             kernel_string = kernel_string + "     " + str(round(x,4)) + "," 
 
-
-        label = tk.Label(newwin, text = kernel_string)
-        label.pack(side = "top")
+        # This is the label displaying the the resulf of dicrete kernel
+        self.kernel_label = tk.Label(newwin, text = kernel_string)
+        self.kernel_label.pack(side = "top",expand=True)
 
 
         #Also generate a plot of Fourier transform function which generates the discrete kernel,
         # this can be used to check if the result is accurate or not to some extent 
 
         
-        f =  nonlocal_kernel.plot_test(order, upperbound = self.upperbound)
+        (x,y) =  nonlocal_kernel.plot_test(self.order, upperbound = self.upperbound)
+        self.f = matplotlib.figure.Figure(figsize=(5,4),dpi=200)
+        self.a = self.f.add_subplot(111)
+        self.a.plot(x,y)
 
-        canvas = FigureCanvasTkAgg(f,newwin)
-        canvas.draw()
-        canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+        self.canvas1 = FigureCanvasTkAgg(self.f,newwin)
+        self.canvas1.draw()
+        self.canvas1.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=True)
 
-        toolbar = NavigationToolbar2TkAgg(canvas, newwin)
+        toolbar = NavigationToolbar2TkAgg(self.canvas1, newwin)
         toolbar.update()
-        canvas._tkcanvas.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+        self.canvas1._tkcanvas.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
 
         button1 = ttk.Button(newwin, text="Advanced Setting", command=lambda: self.AdvancedSetting())
         button1.pack(side=tk.RIGHT)
@@ -142,15 +145,33 @@ class PageOne(tk.Frame):
         e_ad.grid(row=0,column=1,sticky = "W")
         e_ad.insert(10,"0.4")
 
-        button1 = ttk.Button(newwin_ad, text = "Update the upperbound", command =lambda: self.SettingUpperbound(e_ad))
+        button1 = ttk.Button(newwin_ad, text = "Update the upperbound and Refresh the plot", command =lambda: self.SettingUpperboundandRefresh(e_ad))
         button1.grid(row=1, column = 1, sticky = "E")
 
 
         button2 = ttk.Button(newwin_ad, text="Quit", command=newwin_ad.destroy)
         button2.grid(row = 10, sticky = "S")
 
-    def SettingUpperbound(self,e):
-        self.upperbound = float(e.get())        
+    def SettingUpperboundandRefresh(self,e):
+        # This function is used to update the plot on canvas1 using the parameter set by the user
+
+        self.upperbound = float(e.get())
+        nonlocal_kernel = kc(200,5,8000,8000)
+
+        kernel = nonlocal_kernel.kernel_generator(self.order, self.tolerance,upperbound = self.upperbound)
+        
+        # Update the displayed discrete kernel result
+        kernel_string = "Discrete Kernel:"
+
+        for x in kernel:
+            kernel_string = kernel_string + "     " + str(round(x,4)) + "," 
+
+        self.kernel_label.configure(text = kernel_string)
+
+        (x,y) =  nonlocal_kernel.plot_test(self.order, upperbound = self.upperbound)
+        self.a.clear()
+        self.a.plot(x,y)
+        self.canvas1.draw()
 
 
 
