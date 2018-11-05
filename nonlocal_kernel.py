@@ -209,24 +209,24 @@ class Kernel_calculator():
 
         return f
         
-    def kernel_generator(self,order,tolerance):
+    def kernel_generator(self,order,tolerance,upperbound = None):
         
         # This is used to directly generate an array of discrete kernel that can be directly used for simulation
         
         # assign first 2 dicrete value to any order of the kernel
         nonlocal_kernel = np.zeros(2)
         for i in range(2):
-            nonlocal_kernel[i] = self.discrete_kernel_calculator(order,i+1)[0]
+            nonlocal_kernel[i] = self.discrete_kernel_calculator(order,i+1, upperbound = upperbound)[0]
             
         ratio = 1
         i = 2
         # if the ratio is too big then it means we need include more discrete kernels
         while ratio > 1e-3: 
             # we assign at least 4 discrete kernels in total
-            nonlocal_kernel = np.append(nonlocal_kernel,self.discrete_kernel_calculator(order,i+1)[0])
-            nonlocal_kernel = np.append(nonlocal_kernel,self.discrete_kernel_calculator(order,i+2)[0])
+            nonlocal_kernel = np.append(nonlocal_kernel,self.discrete_kernel_calculator(order,i+1,upperbound = upperbound)[0])
+            nonlocal_kernel = np.append(nonlocal_kernel,self.discrete_kernel_calculator(order,i+2,upperbound = upperbound)[0])
             ratio = nonlocal_kernel[i]/nonlocal_kernel[0]
-            i+=2
+            i+=2 # generating two disrete kernel for each iteration
         
         return nonlocal_kernel
         

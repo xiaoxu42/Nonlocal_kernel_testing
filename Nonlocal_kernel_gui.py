@@ -71,7 +71,7 @@ class PageOne(tk.Frame):
         self.e1.insert(10,"4")
 
         label2 = tk.Label(self,text = "order approximation")
-        label2.grid(row=1,column=2)
+        label2.grid(row=1,column=2,sticky ="W")
 
         label3 = tk.Label(self,text = "with error tolerance set to be")
         label3.grid(row=2,column=0)
@@ -95,8 +95,28 @@ class PageOne(tk.Frame):
         order = int(self.e1.get())
         tolerance = float(self.e2.get())
         nonlocal_kernel = kc(200,5,8000,8000)
+        # Pops out a new window newwin
         newwin = tk.Toplevel(self)
-        f =  nonlocal_kernel.plot_test(order)
+        
+        self.upperbound = None # This upperbound can be changed by user throught advanced setting
+        
+        kernel = nonlocal_kernel.kernel_generator(order, tolerance,upperbound = self.upperbound)
+        # Display the resulf of discrete kenerl
+        kernel_string = "Discrete Kernel:"
+
+        for x in kernel:
+            kernel_string = kernel_string + "     " + str(round(x,4)) + "," 
+
+
+        label = tk.Label(newwin, text = kernel_string)
+        label.pack(side = "top")
+
+
+        #Also generate a plot of Fourier transform function which generates the discrete kernel,
+        # this can be used to check if the result is accurate or not to some extent 
+
+        
+        f =  nonlocal_kernel.plot_test(order, upperbound = self.upperbound)
 
         canvas = FigureCanvasTkAgg(f,newwin)
         canvas.draw()
@@ -105,6 +125,34 @@ class PageOne(tk.Frame):
         toolbar = NavigationToolbar2TkAgg(canvas, newwin)
         toolbar.update()
         canvas._tkcanvas.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+
+        button1 = ttk.Button(newwin, text="Advanced Setting", command=lambda: self.AdvancedSetting())
+        button1.pack(side=tk.RIGHT)
+
+        button2 = ttk.Button(newwin, text="Quit", command=newwin.destroy)
+        button2.pack(side =tk.BOTTOM)
+
+    def AdvancedSetting(self):
+        newwin_ad = tk.Toplevel(self)
+
+        label1 = tk.Label(newwin_ad, text="Upperbound = ")
+        label1.grid(row=0,column=0,sticky = "W")
+
+        e_ad = tk.Entry(newwin_ad)
+        e_ad.grid(row=0,column=1,sticky = "W")
+        e_ad.insert(10,"0.4")
+
+        button1 = ttk.Button(newwin_ad, text = "Update the upperbound", command =lambda: self.SettingUpperbound(e_ad))
+        button1.grid(row=1, column = 1, sticky = "E")
+
+
+        button2 = ttk.Button(newwin_ad, text="Quit", command=newwin_ad.destroy)
+        button2.grid(row = 10, sticky = "S")
+
+    def SettingUpperbound(self,e):
+        self.upperbound = float(e.get())        
+
+
 
         
 
