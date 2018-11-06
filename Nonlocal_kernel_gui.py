@@ -1,6 +1,8 @@
 import matplotlib
 matplotlib.use("TkAgg")
 
+import numpy as np
+
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2TkAgg
 from matplotlib.figure import Figure
 
@@ -12,6 +14,26 @@ import tkinter as tk
 from tkinter import ttk
 
 LARGE_FONT = ("Verdana",12)
+NORMAL_FONT = ("Verdana",10)
+
+# funcction that convert array to string that will be used to display the discrete kernels
+def DisplayArray(Array):
+    Array_string = ""
+    for x in Array:
+        Array_string = Array_string + "     " + str(round(x,4)) + "," 
+    
+    return Array_string
+
+def popupmsg(msg):
+    popup = tk.Tk()
+
+    popup.wm_title("ALERT!")
+    label = ttk.Label(popup, text =msg, font = NORMAL_FONT)
+    label.pack(side = "top", fill ="x", pady =10)
+    buttonn1 = ttk.Button(popup, text = "Got it", command = popup.destroy)
+    buttonn1.pack()
+
+    popup.mainloop()
 
 class Mygui(tk.Tk):
 
@@ -26,8 +48,10 @@ class Mygui(tk.Tk):
         container.grid_columnconfigure(0, weight=1)
 
         self.frames = {}
+        self.discrete_kernel = None
+        self.discrete_kernel_flag = 0 # flag that represents whether the discrete kernel has been assigned value or not
 
-        for F in (StartPage, PageOne, PageTwo):
+        for F in (StartPage, PageOne, PageTwo, SimbyUserKernel):
 
             frame = F(container, self)
             frame.grid(row=0, column=0, sticky = "nsew")
@@ -36,10 +60,35 @@ class Mygui(tk.Tk):
 
         self.show_frame(StartPage)
 
+        
+
+        # This is the default material properties used for calculating the nonlocal kernel(default initialization)
+        self.nonlocal_kernel = kc(200e9,5e9,8000,8000)
+        
     def show_frame(self,index):
 
         frame = self.frames[index]
         frame.lift()
+    
+    def initialization(self,e1,e2,e3,e4):
+        # This is used to re-initialize the basis 1-D elastic problem using nonlocal_kernel library from user's input
+        E1 = float(e1.get())
+        E2 = float(e2.get())
+        rho1 = float(e3.get())
+        rho2 = float(e4.get())
+
+        if E1>E2:
+            Eh, Es = E1, E2
+            rhoh, rhos = rho1, rho2
+        else:
+            Eh, Es = E2, E1
+            rhoh, rhos = rho2, rho1
+
+        self.nonlocal_kernel = kc(Eh,Es,rhoh,rhos)
+       
+
+        
+
 
 
 
@@ -47,14 +96,51 @@ class StartPage(tk.Frame):
 
     def __init__(self, parent, controller):
         tk.Frame.__init__(self, parent)
-        label = tk.Label(self,text = "Welcome", font=LARGE_FONT)
-        label.pack(pady=10,padx=10)
+        label = tk.Label(self,text = "Welcome, please specify the material properties of the composit", font=LARGE_FONT)
+        label.grid(row=0,column = 0, columnspan = 3, pady=10,padx=10)
+
+        label1 = tk.Label(self, text = "Elastic modulus of material 1 (Pa)")
+        label1.grid(row=1,column=0)
+
+        e1 = tk.Entry(self)
+        e1.grid(row=1,column=1)
+        e1.insert(10,"200e9")
+
+        label2 = tk.Label(self,text = "Elastic modulus of material 2 (Pa)")
+        label2.grid(row=2,column=0)
+
+        e2 = tk.Entry(self)
+        e2.grid(row=2,column=1)
+        e2.insert(10,"5e9")
+
+        label3 = tk.Label(self,text = "Density of material 1 (kg/m3)")
+        label3.grid(row=3,column=0)
+
+        e3 = tk.Entry(self)
+        e3.grid(row=3,column=1)
+        e3.insert(10,"8000")
+
+        label4 = tk.Label(self,text = "Density of material 2 (kg/m3)")
+        label4.grid(row=4,column=0)
+
+        e4 = tk.Entry(self)
+        e4.grid(row=4,column=1)
+        e4.insert(10,"8000")
+
+        
+
+        button = ttk.Button(self, text = "OK", command=lambda: controller.initialization(e1,e2,e3,e4))
+        button.grid(row=5,column = 2, sticky = "E", pady = 20)
 
         button1 = ttk.Button(self,text = "Kernel Generator", command=lambda: controller.show_frame(PageOne))
-        button1.pack()
+        button1.grid(row = 10,column=0,sticky = "W")
 
-        button2 = ttk.Button(self,text = "1-D Simulation", command=lambda: controller.show_frame(PageTwo))
-        button2.pack()
+        button3 = ttk.Button(self,text = "Nonlocal 1-D Simulation using Kernel Generator", command=lambda: controller.show_frame(SimbyUserKernel))
+        button3.grid(row = 11,column=0, sticky = "W")
+
+        button2 = ttk.Button(self,text = "Quick Nonlocal 1-D Simulation", command=lambda: controller.show_frame(PageTwo))
+        button2.grid(row = 12,column=0, sticky = "W")
+    
 
 class PageOne(tk.Frame):
 
@@ -80,36 +166,38 @@ class PageOne(tk.Frame):
         self.e2.grid(row=2,column=1)
         self.e2.insert(10,"0.001")
 
-        button3 = ttk.Button(self,text = "Generate discrete nonlocal kernel", command=lambda:self.GenerateKernel())
+        button3 = ttk.Button(self,text = "Generate discrete nonlocal kernel", command=lambda:self.GenerateKernel(controller))
         button3.grid(row=3,column=1)
 
 
 
-        button1 = ttk.Button(self,text = "1-D Simulation", command=lambda: controller.show_frame(PageTwo))
-        button1.grid(row=20,column=1)
+        button1 = ttk.Button(self,text = "Quick Nolocal 1-D Simulation", command=lambda: controller.show_frame(PageTwo))
+        button1.grid(row=20,column=0, sticky = "WS")
 
         button2 = ttk.Button(self,text = "Return", command=lambda: controller.show_frame(StartPage))
-        button2.grid(row=30,column= 1)
+        button2.grid(row=30,column=0, sticky = "WS")
 
-    def GenerateKernel(self):
+    def GenerateKernel(self,controller):
         self.order = int(self.e1.get())
         self.tolerance = float(self.e2.get())
-        nonlocal_kernel = kc(200,5,8000,8000)
+        nonlocal_kernel = controller.nonlocal_kernel
         # Pops out a new window newwin
         newwin = tk.Toplevel(self)
 
         self.upperbound = None # This upperbound can be changed by user throught advanced setting
         
         kernel = nonlocal_kernel.kernel_generator(self.order, self.tolerance,upperbound = self.upperbound)
+        self.discrete_kernel = kernel
         # Display the resulf of discrete kernel
-        kernel_string = "Discrete Kernel:"
-
-        for x in kernel:
-            kernel_string = kernel_string + "     " + str(round(x,4)) + "," 
+        kernel_string = "Discrete Kernel:" + DisplayArray(kernel)
 
         # This is the label displaying the the resulf of dicrete kernel
         self.kernel_label = tk.Label(newwin, text = kernel_string)
-        self.kernel_label.pack(side = "top",expand=True)
+        self.kernel_label.pack(side = tk.TOP,expand=True, pady = 15)
+
+        # This is the button that will pass the calculated discrete kernel to controller so that it can be used in other pages for simluation later on
+        buttonpasskernel = ttk.Button(newwin, text = "Use this kernel to do 1-D nonlocal simulation", command=lambda: self.PassDiscreteKernel(controller,newwin))
+        buttonpasskernel.pack()
 
 
         #Also generate a plot of Fourier transform function which generates the discrete kernel,
@@ -129,13 +217,15 @@ class PageOne(tk.Frame):
         toolbar.update()
         self.canvas1._tkcanvas.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
 
-        button1 = ttk.Button(newwin, text="Advanced Setting", command=lambda: self.AdvancedSetting())
+        button1 = ttk.Button(newwin, text="Advanced Setting", command=lambda: self.AdvancedSetting(controller))
         button1.pack(side=tk.RIGHT)
 
         button2 = ttk.Button(newwin, text="Quit", command=newwin.destroy)
         button2.pack(side =tk.BOTTOM)
 
-    def AdvancedSetting(self):
+    def AdvancedSetting(self,controller):
+
+        
         newwin_ad = tk.Toplevel(self)
 
         label1 = tk.Label(newwin_ad, text="Upperbound = ")
@@ -145,26 +235,31 @@ class PageOne(tk.Frame):
         e_ad.grid(row=0,column=1,sticky = "W")
         e_ad.insert(10,"0.4")
 
-        button1 = ttk.Button(newwin_ad, text = "Update the upperbound and Refresh the plot", command =lambda: self.SettingUpperboundandRefresh(e_ad))
+        button1 = ttk.Button(newwin_ad, text = "Update the upperbound and Refresh the plot", command =lambda: self.SettingUpperboundandRefresh(e_ad,controller))
         button1.grid(row=1, column = 1, sticky = "E")
 
 
         button2 = ttk.Button(newwin_ad, text="Quit", command=newwin_ad.destroy)
         button2.grid(row = 10, sticky = "S")
 
-    def SettingUpperboundandRefresh(self,e):
+    def PassDiscreteKernel(self, controller,newwin):
+        controller.discrete_kernel = self.discrete_kernel
+        controller.discrete_kernel_flag = 1
+        newwin.destroy()
+        controller.show_frame(SimbyUserKernel)
+
+        
+
+    def SettingUpperboundandRefresh(self,e,controller):
         # This function is used to update the plot on canvas1 using the parameter set by the user
 
         self.upperbound = float(e.get())
-        nonlocal_kernel = kc(200,5,8000,8000)
+        nonlocal_kernel = controller.nonlocal_kernel
 
         kernel = nonlocal_kernel.kernel_generator(self.order, self.tolerance,upperbound = self.upperbound)
-        
+        self.kernel = kernel
         # Update the displayed discrete kernel result
-        kernel_string = "Discrete Kernel:"
-
-        for x in kernel:
-            kernel_string = kernel_string + "     " + str(round(x,4)) + "," 
+        kernel_string = "Discrete Kernel:" + DisplayArray(kernel)
 
         self.kernel_label.configure(text = kernel_string)
 
@@ -191,6 +286,109 @@ class PageTwo(tk.Frame):
         button2.pack()
 
 
+class SimbyUserKernel(tk.Frame):
+
+    # This is the page users can do their 1-D simulation using the kernel they calculate at Kernel Generator
+
+    def __init__(self, parent, controller):
+        
+        tk.Frame.__init__(self, parent)
+
+        self.label = tk.Label(self,text = "Import the discrete kernel to see if you are using the corret one!", font=LARGE_FONT)
+        self.label.grid(row=0, column = 0, columnspan = 4, pady=10,padx=10)
+
+        button = ttk.Button(self, text = "Import the discrete kernel from kernel generator", command = lambda:self.DisplayDiscreteKernel(controller))
+        button.grid(row=1,column = 1)
+
+        label1 = tk.Label(self, text = "Total simulation time:" )
+        label1.grid(row=2,column = 0,sticky = "E")
+
+        self.e1 = tk.Entry(self)
+        self.e1.grid(row=2,column=1,sticky = "W")
+        self.e1.insert(10,"1e-3")
+        
+        label2 = tk.Label(self, text = "Time step:")
+        label2.grid(row=3,column=0, sticky = "E")
+
+        self.e2 = tk.Entry(self)
+        self.e2.grid(row=3,column=1,sticky = "W")
+        self.e2.insert(10,"1e-7")
+
+        label3 = tk.Label(self, text = "Number of nodes" )
+        label3.grid(row=4,column = 0,sticky = "E")
+
+        self.e3 = tk.Entry(self)
+        self.e3.grid(row=4,column=1,sticky = "W")
+        self.e3.insert(10,"50")
+
+        
+
+        button_sim = ttk.Button(self, text = "Do nonlocal simulation!!", command=lambda: self.Nonlocal_sim(controller))
+        button_sim.grid(row=4,column=2)
+        
+
+        button1 = ttk.Button(self,text = "Kernel Generator", command=lambda: controller.show_frame(PageOne))
+        button1.grid(row=10,column=0)
+
+        button2 = ttk.Button(self,text = "Return", command=lambda: controller.show_frame(StartPage))
+        button2.grid(row=11,column=0)
+
+    def DisplayDiscreteKernel(self,controller):
+
+        if controller.discrete_kernel_flag == 0:
+            popupmsg("Oops, you haven't calculated the kernel yet, please got back to Kernel Generator to calculate your kernel")
+        
+        else:
+            kernel_string = "Your discrete kernel is:" + DisplayArray(controller.discrete_kernel)
+            self.label.configure(text = kernel_string)
+            
+    def Nonlocal_sim(self, controller):
+
+        Ttotal = float(self.e1.get())
+        dt = float(self.e2.get())
+        Nnodes = int(self.e3.get())
+        nonlocal_kernel = controller.nonlocal_kernel
+        # Pops out a new window newwin
+        newwin = tk.Toplevel(self)
+
+        Eh = nonlocal_kernel.Eh
+
+        rhoave = nonlocal_kernel.rhoh*2*nonlocal_kernel.alpha + nonlocal_kernel.rhos*nonlocal_kernel.beta
+
+        nonlocal_kernel_result = sim1D(Eh,rhoave,displacement_load,Ttotal,dt,Nnodes)
+
+        u_mid = nonlocal_kernel_result.nonlocal_kernel_middisplacement(controller.discrete_kernel)
+        size1 = np.size(u_mid)
+        t1 = np.linspace(0.0,Ttotal,num = size1)
+        
+        self.f = matplotlib.figure.Figure(figsize=(5,4),dpi=200)
+        self.a = self.f.add_subplot(111)
+        self.a.plot(t1,u_mid)
+        #plt.xlabel('Time ($s$) \n \n ')
+        #plt.ylabel('Midpoint Displacement ($m$)')
+
+        self.canvas1 = FigureCanvasTkAgg(self.f,newwin)
+        self.canvas1.draw()
+        self.canvas1.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+
+        toolbar = NavigationToolbar2TkAgg(self.canvas1, newwin)
+        toolbar.update()
+        self.canvas1._tkcanvas.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+
+
+
+def displacement_load(t):
+    T = 0.157e-3
+    P0 = -50e3
+    b0 = 1e46
+    load = P0*b0*t**6*(t-T)**6*(1-np.heaviside(t-T,0))
+    return load
+
+
+
+
+
+
 myapp = Mygui()
-myapp.geometry("1000x500")
+#myapp.geometry("1000x500")
 myapp.mainloop()
