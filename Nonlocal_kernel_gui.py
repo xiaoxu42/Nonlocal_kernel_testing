@@ -106,31 +106,31 @@ class StartPage(tk.Frame):
         label.grid(row=0,column = 0, columnspan = 3, pady=10,padx=10)
 
         label1 = tk.Label(self, text = "Elastic modulus of material 1 (Pa)")
-        label1.grid(row=1,column=0)
+        label1.grid(row=1,column=0,sticky = "E")
 
         e1 = tk.Entry(self)
-        e1.grid(row=1,column=1)
+        e1.grid(row=1,column=1,sticky = "W")
         e1.insert(10,"200e9")
 
         label2 = tk.Label(self,text = "Elastic modulus of material 2 (Pa)")
-        label2.grid(row=2,column=0)
+        label2.grid(row=2,column=0,sticky = "E")
 
         e2 = tk.Entry(self)
-        e2.grid(row=2,column=1)
+        e2.grid(row=2,column=1,sticky = "W")
         e2.insert(10,"5e9")
 
         label3 = tk.Label(self,text = "Density of material 1 (kg/m3)")
-        label3.grid(row=3,column=0)
+        label3.grid(row=3,column=0,sticky = "E")
 
         e3 = tk.Entry(self)
-        e3.grid(row=3,column=1)
+        e3.grid(row=3,column=1,sticky = "W")
         e3.insert(10,"8000")
 
         label4 = tk.Label(self,text = "Density of material 2 (kg/m3)")
-        label4.grid(row=4,column=0)
+        label4.grid(row=4,column=0,sticky = "E")
 
         e4 = tk.Entry(self)
-        e4.grid(row=4,column=1)
+        e4.grid(row=4,column=1,sticky = "W")
         e4.insert(10,"8000")
 
         
@@ -146,6 +146,9 @@ class StartPage(tk.Frame):
 
         button2 = ttk.Button(self,text = "Quick Nonlocal 1-D Simulation", command=lambda: controller.show_frame(PageTwo))
         button2.grid(row = 12,column=0, sticky = "W")
+
+        # make the buttons placed at bottom
+        self.grid_rowconfigure(9, weight = 1)
     
 
 class PageOne(tk.Frame):
@@ -156,32 +159,37 @@ class PageOne(tk.Frame):
         label.grid(row = 0,column = 1)
 
         label1  = tk.Label(self,text = "Calculating the kernel using")
-        label1.grid(row=1,column=0)
+        label1.grid(row=1,column=0,sticky = "E")
 
         self.e1 = tk.Entry(self)
-        self.e1.grid(row=1,column=1)
+        self.e1.grid(row=1,column=1,sticky = "W")
         self.e1.insert(10,"4")
 
         label2 = tk.Label(self,text = "order approximation")
         label2.grid(row=1,column=2,sticky ="W")
 
         label3 = tk.Label(self,text = "with error tolerance set to be")
-        label3.grid(row=2,column=0)
+        label3.grid(row=2,column=0,sticky = "E")
 
         self.e2 = tk.Entry(self)
-        self.e2.grid(row=2,column=1)
+        self.e2.grid(row=2,column=1,sticky = "W")
         self.e2.insert(10,"0.001")
 
         button3 = ttk.Button(self,text = "Generate discrete nonlocal kernel", command=lambda:self.GenerateKernel(controller))
-        button3.grid(row=3,column=1)
+        button3.grid(row=3,column=1,columnspan = 2,sticky = "E")
 
-
-
+        button0 = ttk.Button(self,text = "Nonlocal 1-D Simulation using Kernel Generator", command=lambda: controller.show_frame(SimbyUserKernel))
+        button0.grid(row=19,column=0, sticky = "WS")
+    
         button1 = ttk.Button(self,text = "Quick Nolocal 1-D Simulation", command=lambda: controller.show_frame(PageTwo))
         button1.grid(row=20,column=0, sticky = "WS")
 
         button2 = ttk.Button(self,text = "Return", command=lambda: controller.show_frame(StartPage))
         button2.grid(row=30,column=0, sticky = "WS")
+
+        # make the buttons placed at bottom
+        self.grid_rowconfigure(9, weight = 1)
+        
 
     def GenerateKernel(self,controller):
         self.order = int(self.e1.get())
@@ -330,6 +338,9 @@ class PageTwo(tk.Frame):
         button3 = ttk.Button(self,text = "Return", command=lambda: controller.show_frame(StartPage))
         button3.grid(row=12,column=0,sticky = "W")
 
+        # make the buttons placed at bottom
+        self.grid_rowconfigure(9, weight = 1)
+
     
     def Opendisplacementfile(self,controller):
         name  = filedialog.askopenfilename(initialdir = os.getcwd(), filetypes =(("Data File","*.dat"),("All files","*.*")), title = "Choose a file")
@@ -424,14 +435,20 @@ class SimbyUserKernel(tk.Frame):
         
 
         button_sim = ttk.Button(self, text = "Do nonlocal simulation!!", command=lambda: self.Nonlocal_sim(controller))
-        button_sim.grid(row=6,column=2,sticky = "W")
+        button_sim.grid(row=6,column=2,sticky = "W", rowspan = 2)
         
 
         button1 = ttk.Button(self,text = "Kernel Generator", command=lambda: controller.show_frame(PageOne))
-        button1.grid(row=10,column=0,sticky = "W")
+        button1.grid(row=10,column=0,sticky = "WS", rowspan = 2)
+
+        button3 = ttk.Button(self,text = "Quick Nolocal 1-D Simulation", command=lambda: controller.show_frame(PageTwo))
+        button3.grid(row=15,column=0,sticky = "WS")
 
         button2 = ttk.Button(self,text = "Return", command=lambda: controller.show_frame(StartPage))
-        button2.grid(row=11,column=0,sticky = "W")
+        button2.grid(row=20,column=0,sticky = "WS")
+
+        # make the buttons placed at bottom
+        self.grid_rowconfigure(9, weight = 1)
 
     def DisplayDiscreteKernel(self,controller):
 
