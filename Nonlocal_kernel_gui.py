@@ -1,5 +1,6 @@
 import matplotlib
 matplotlib.use("TkAgg")
+#import matplotlib.pyplot as plt
 
 import numpy as np
 
@@ -12,6 +13,9 @@ from nonlocal_kernel_simulation import simulator_1D as sim1D
 
 import tkinter as tk
 from tkinter import ttk
+from tkinter import filedialog
+
+import os
 
 LARGE_FONT = ("Verdana",12)
 NORMAL_FONT = ("Verdana",10)
@@ -27,7 +31,7 @@ def DisplayArray(Array):
 def popupmsg(msg):
     popup = tk.Tk()
 
-    popup.wm_title("ALERT!")
+    popup.wm_title("Message")
     label = ttk.Label(popup, text =msg, font = NORMAL_FONT)
     label.pack(side = "top", fill ="x", pady =10)
     buttonn1 = ttk.Button(popup, text = "Got it", command = popup.destroy)
@@ -50,6 +54,8 @@ class Mygui(tk.Tk):
         self.frames = {}
         self.discrete_kernel = None
         self.discrete_kernel_flag = 0 # flag that represents whether the discrete kernel has been assigned value or not
+        self.displacement_load_data = None
+        self.displacement_load_data_flag = 0 # flag that represents wheter the BC array has been assigned or not
 
         for F in (StartPage, PageOne, PageTwo, SimbyUserKernel):
 
@@ -273,17 +279,109 @@ class PageOne(tk.Frame):
         
 
 class PageTwo(tk.Frame):
+    # This is the page where you can do a quick nonlocal simlution by directly specify the number of oder of the kernel you want to use
 
     def __init__(self, parent, controller):
+        
         tk.Frame.__init__(self, parent)
-        label = tk.Label(self,text = "1-D Simulation", font=LARGE_FONT)
-        label.pack(pady=10,padx=10)
+
+        label0 = tk.Label(self, text = "Order of the kernel:" )
+        label0.grid(row=1,column = 0,sticky = "E")
+
+        self.e0 = tk.Entry(self)
+        self.e0.grid(row=1,column=1,sticky = "W")
+        self.e0.insert(10,"4")
+
+        label1 = tk.Label(self, text = "Total simulation time:" )
+        label1.grid(row=2,column = 0,sticky = "E")
+
+        self.e1 = tk.Entry(self)
+        self.e1.grid(row=2,column=1,sticky = "W")
+        self.e1.insert(10,"1e-3")
+        
+        label2 = tk.Label(self, text = "Time step:")
+        label2.grid(row=3,column=0, sticky = "E")
+
+        self.e2 = tk.Entry(self)
+        self.e2.grid(row=3,column=1,sticky = "W")
+        self.e2.insert(10,"1e-7")
+
+        label3 = tk.Label(self, text = "Number of nodes" )
+        label3.grid(row=4,column = 0,sticky = "E")
+
+        self.e3 = tk.Entry(self)
+        self.e3.grid(row=4,column=1,sticky = "W")
+        self.e3.insert(10,"50")
+
+        self.button_BC = ttk.Button(self, text = "Import displacement load data from file...", command=lambda: self.Opendisplacementfile(controller))
+        self.button_BC.grid(row=5,column = 0, columnspan = 2)
+        
+
+        button_sim = ttk.Button(self, text = "Do nonlocal simulation!!", command=lambda: self.Nonlocal_sim(controller))
+        button_sim.grid(row=6,column=2)
+        
 
         button1 = ttk.Button(self,text = "Kernel Generator", command=lambda: controller.show_frame(PageOne))
-        button1.pack()
+        button1.grid(row=10,column=0,sticky = "W")
 
-        button2 = ttk.Button(self,text = "Return", command=lambda: controller.show_frame(StartPage))
-        button2.pack()
+        button2 = ttk.Button(self,text = "Nonlocal 1-D Simulation using Kernel Generator", command=lambda: controller.show_frame(SimbyUserKernel))
+        button2.grid(row=11,column=0,sticky = "W")
+
+        button3 = ttk.Button(self,text = "Return", command=lambda: controller.show_frame(StartPage))
+        button3.grid(row=12,column=0,sticky = "W")
+
+    
+    def Opendisplacementfile(self,controller):
+        name  = filedialog.askopenfilename(initialdir = os.getcwd(), filetypes =(("Data File","*.dat"),("All files","*.*")), title = "Choose a file")
+
+        if name != "":       # if user didn't click Cancel 
+            # Use try just in case user types some unknown file or closes without choosing a file
+            controller.displacement_load_data = np.loadtxt(name) 
+            controller.displacement_load_data_flag = 1
+            # This loadtxt command actually will cause problem in debug mode, but it works fine without debugging. Refer to https://github.com/Microsoft/ptvsd/issues/465 for details about the problem of numpy.loadtxt
+            popupmsg("Load successfully!")
+           
+    def Nonlocal_sim(self, controller):
+
+        order = int(self.e0.get())
+        Ttotal = float(self.e1.get())
+        dt = float(self.e2.get())
+        Nnodes = int(self.e3.get())
+        
+        nonlocal_kernel = controller.nonlocal_kernel
+        
+        tolerance = 0.01    #default tolerance for kernel generator
+
+        Eh = nonlocal_kernel.Eh
+
+        rhoave = nonlocal_kernel.rhoh*2*nonlocal_kernel.alpha + nonlocal_kernel.rhos*nonlocal_kernel.beta
+
+        if controller.displacement_load_data_flag == 0:
+            popupmsg("Oops, you haven't defined your Boundary Condition yet, please use the \"import displacement load data\" to define your BC ")
+        
+        quick_kernel = nonlocal_kernel.kernel_generator(order,tolerance)    
+        nonlocal_kernel_result = sim1D(Eh,rhoave,controller.displacement_load_data,Ttotal,dt,Nnodes)
+        u_mid = nonlocal_kernel_result.nonlocal_kernel_middisplacement(quick_kernel)
+        
+        # Pops out a new window newwin
+        newwin = tk.Toplevel(self)
+
+        size1 = np.size(u_mid)
+        t1 = np.linspace(0.0,Ttotal,num = size1)
+        
+        self.f = matplotlib.figure.Figure(figsize=(5,4),dpi=200)
+        self.a = self.f.add_subplot(111)
+        self.a.plot(t1,u_mid)
+        self.a.set_xlabel('Time ($s$)')
+        self.a.set_ylabel('Midpoint Displacement ($m$)')
+
+        self.canvas1 = FigureCanvasTkAgg(self.f,newwin)
+        self.canvas1.draw()
+        self.canvas1.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+
+        toolbar = NavigationToolbar2TkAgg(self.canvas1, newwin)
+        toolbar.update()
+        self.canvas1._tkcanvas.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
 
 
 class SimbyUserKernel(tk.Frame):
@@ -321,17 +419,19 @@ class SimbyUserKernel(tk.Frame):
         self.e3.grid(row=4,column=1,sticky = "W")
         self.e3.insert(10,"50")
 
+        self.button_BC = ttk.Button(self, text = "Import displacement load data from file...", command=lambda: self.Opendisplacementfile(controller))
+        self.button_BC.grid(row=5,column = 0, columnspan = 2)
         
 
         button_sim = ttk.Button(self, text = "Do nonlocal simulation!!", command=lambda: self.Nonlocal_sim(controller))
-        button_sim.grid(row=4,column=2)
+        button_sim.grid(row=6,column=2,sticky = "W")
         
 
         button1 = ttk.Button(self,text = "Kernel Generator", command=lambda: controller.show_frame(PageOne))
-        button1.grid(row=10,column=0)
+        button1.grid(row=10,column=0,sticky = "W")
 
         button2 = ttk.Button(self,text = "Return", command=lambda: controller.show_frame(StartPage))
-        button2.grid(row=11,column=0)
+        button2.grid(row=11,column=0,sticky = "W")
 
     def DisplayDiscreteKernel(self,controller):
 
@@ -341,31 +441,55 @@ class SimbyUserKernel(tk.Frame):
         else:
             kernel_string = "Your discrete kernel is:" + DisplayArray(controller.discrete_kernel)
             self.label.configure(text = kernel_string)
+    
+    def Opendisplacementfile(self,controller):
+        name  = filedialog.askopenfilename(initialdir = os.getcwd(), filetypes =(("Data File","*.dat"),("All files","*.*")), title = "Choose a file")
+
+        if name != "":       # if user didn't click Cancel 
+            # Use try just in case user types some unknown file or closes without choosing a file
+            controller.displacement_load_data = np.loadtxt(name) 
+            controller.displacement_load_data_flag = 1
+            # This loadtxt command actually will cause problem in debug mode, but it works fine without debugging. Refer to https://github.com/Microsoft/ptvsd/issues/465 for details about the problem of numpy.loadtxt
+            popupmsg("Load successfully!")
+        
+
+        
             
     def Nonlocal_sim(self, controller):
 
         Ttotal = float(self.e1.get())
         dt = float(self.e2.get())
         Nnodes = int(self.e3.get())
+        
         nonlocal_kernel = controller.nonlocal_kernel
-        # Pops out a new window newwin
-        newwin = tk.Toplevel(self)
+        
 
         Eh = nonlocal_kernel.Eh
 
         rhoave = nonlocal_kernel.rhoh*2*nonlocal_kernel.alpha + nonlocal_kernel.rhos*nonlocal_kernel.beta
 
-        nonlocal_kernel_result = sim1D(Eh,rhoave,displacement_load,Ttotal,dt,Nnodes)
+        if controller.displacement_load_data_flag == 0:
+            popupmsg("Oops, you haven't defined your Boundary Condition yet, please use the \"import displacement load data\" to define your BC ")
+        
+            
+        if controller.discrete_kernel_flag == 0:
+            popupmsg("Oops, you haven't generate a kernel you want to use yet, please go back to Kernel Generator to generate your kernel")
 
+            
+        nonlocal_kernel_result = sim1D(Eh,rhoave,controller.displacement_load_data,Ttotal,dt,Nnodes)
         u_mid = nonlocal_kernel_result.nonlocal_kernel_middisplacement(controller.discrete_kernel)
+        
+        # Pops out a new window newwin
+        newwin = tk.Toplevel(self)
+
         size1 = np.size(u_mid)
         t1 = np.linspace(0.0,Ttotal,num = size1)
         
         self.f = matplotlib.figure.Figure(figsize=(5,4),dpi=200)
         self.a = self.f.add_subplot(111)
         self.a.plot(t1,u_mid)
-        #plt.xlabel('Time ($s$) \n \n ')
-        #plt.ylabel('Midpoint Displacement ($m$)')
+        self.a.set_xlabel('Time ($s$)')
+        self.a.set_ylabel('Midpoint Displacement ($m$)')
 
         self.canvas1 = FigureCanvasTkAgg(self.f,newwin)
         self.canvas1.draw()
@@ -377,12 +501,7 @@ class SimbyUserKernel(tk.Frame):
 
 
 
-def displacement_load(t):
-    T = 0.157e-3
-    P0 = -50e3
-    b0 = 1e46
-    load = P0*b0*t**6*(t-T)**6*(1-np.heaviside(t-T,0))
-    return load
+
 
 
 

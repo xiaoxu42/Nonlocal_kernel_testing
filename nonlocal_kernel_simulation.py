@@ -44,16 +44,9 @@ class simulator_1D():
         N = Nnodes+2*horizon # add some nodes at the boundaries for nonlocal BCs
         self.nonlocal_N = N
         u = np.zeros((N,Tsteps))
-        t = np.linspace(0,Ttotal,Tsteps)
-        self.t = t
-        loadfunc_array = np.zeros(Tsteps) # array for load at each time step
-    
-        # generate the load_array by the given load_function(fixed at one end, Neumann BC at the other end)   
-        for tt in range(Tsteps):
-            loadfunc_array[tt] = loadfunc(t[tt])
-        
+                
         # Use the CFFI to import the C code to do the simulation for all time steps by explicit time discretization 
-        lib.explicit_time(ffi.cast("double *", ffi.from_buffer(u)), N, Tsteps, kernel0, ffi.cast("double *", ffi.from_buffer(kernel)), horizon, E ,rho, dt, ffi.cast("double *", ffi.from_buffer(loadfunc_array)))
+        lib.explicit_time(ffi.cast("double *", ffi.from_buffer(u)), N, Tsteps, kernel0, ffi.cast("double *", ffi.from_buffer(kernel)), horizon, E ,rho, dt, ffi.cast("double *", ffi.from_buffer(loadfunc)))
          
     
         return u
