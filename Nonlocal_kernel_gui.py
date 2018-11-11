@@ -16,6 +16,7 @@ from tkinter import ttk
 from tkinter import filedialog
 
 import os
+import csv
 
 LARGE_FONT = ("Verdana",12)
 NORMAL_FONT = ("Verdana",10)
@@ -394,6 +395,9 @@ class PageTwo(tk.Frame):
         toolbar.update()
         self.canvas1._tkcanvas.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
 
+        button_save = ttk.Button(newwin, text = "save complete result as...", command=lambda: savecompleteresult(nonlocal_kernel_result,quick_kernel))
+        button_save.pack()
+
 
 class SimbyUserKernel(tk.Frame):
 
@@ -515,6 +519,22 @@ class SimbyUserKernel(tk.Frame):
         toolbar = NavigationToolbar2TkAgg(self.canvas1, newwin)
         toolbar.update()
         self.canvas1._tkcanvas.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+
+        button_save = ttk.Button(newwin, text = "save complete result as...", command=lambda: savecompleteresult(nonlocal_kernel_result,controller.discrete_kernel))
+        button_save.pack()
+
+def savecompleteresult(nonlocalresult,kernel):
+    f = filedialog.asksaveasfile(mode="w", defaultextension=".dat")
+
+    
+
+    if f is None:
+        return
+    completeresult = nonlocalresult.nonlocal_kernel_sim(kernel)
+    writer  = csv.writer(f, delimiter = ' ')
+    writer.writerows(completeresult.T)
+    
+
 
 
 
