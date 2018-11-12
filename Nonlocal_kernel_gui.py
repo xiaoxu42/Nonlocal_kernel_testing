@@ -496,6 +496,9 @@ class SimbyUserKernel(tk.Frame):
         if controller.discrete_kernel_flag == 0:
             popupmsg("Oops, you haven't generate a kernel you want to use yet, please go back to Kernel Generator to generate your kernel")
 
+        if controller.displacement_load_data.shape[0] < int(Ttotal/dt):
+            popupmsg("Oops, it seems that your Boundary Condition file does not have enough data for simulating through all time steps")
+
             
         nonlocal_kernel_result = sim1D(Eh,rhoave,controller.displacement_load_data,Ttotal,dt,Nnodes)
         u_mid = nonlocal_kernel_result.nonlocal_kernel_middisplacement(controller.discrete_kernel)
@@ -533,6 +536,8 @@ def savecompleteresult(nonlocalresult,kernel):
     completeresult = nonlocalresult.nonlocal_kernel_sim(kernel)
     writer  = csv.writer(f, delimiter = ' ')
     writer.writerows(completeresult.T)
+
+    popupmsg("Save successfully!!!")
     
 
 
