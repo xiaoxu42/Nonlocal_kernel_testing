@@ -108,7 +108,7 @@ class Kernel_calculator():
                 
         return sol
     
-    def fitting_kernel_formular(self,order,upperbound = None):
+    def fitting_kernel_formular(self,order,upperbound = None,samplenumber = None):
         
         # Since matrix A in lineq_solver could be rank-deficient if xi is around 1/(2l), therefore we cannot directly use
         # the function lineq_solver to do the integration to find out the Fourier coefficients. But we are fortunate
@@ -118,20 +118,24 @@ class Kernel_calculator():
         oorder = 2*int((order+1)/2) # tempory vairable for treating the odd number of order the same way as even number order
         
         N = oorder  # number of coefficients in the formular that needs to be fitted
-        
+        if samplenumber == None:
+            Nosamples = 2*N
+        else:
+            Nosamples = int(samplenumber)
+
         if upperbound == None:
-            xi = np.linspace(1/(1+2**(order/2))/self.l/2/N,1/(1+2**(order/2))/self.l,2*N) # the number of samples that I pick is 8N inside the interval, the upper bond may not be the best upper bond****
+            xi = np.linspace(1/(1+2**(order/2))/self.l/Nosamples,1/(1+2**(order/2))/self.l,Nosamples) # the number of samples that I pick is 8N inside the interval, the upper bond may not be the best upper bond****
         # more comments: by some testing, the upper bond may even depend on the value of rhoh, rhos due to numerical accuracy
         # This sample picking process still needs a lot of improvement in order to be robust**************Right now it seems to work fine for rho=8000
         else:
-            xi = np.linspace(upperbound/self.l/2/N,upperbound/self.l,2*N)
+            xi = np.linspace(upperbound/self.l/Nosamples,upperbound/self.l,Nosamples)
         # Since we know the exact form of the formluar, we don't need optimization to do the fitting, we can simply solve
         # an overdetermined linear equations system.
         
-        #Constructing the A in Ax=b, where A is 2N*N
-        A = np.zeros((2*N,N))
-        b = np.zeros(2*N)
-        for i in range(2*N):
+        #Constructing the A in Ax=b, where A has a shape of Nosamples*N
+        A = np.zeros((Nosamples,N))
+        b = np.zeros(Nosamples)
+        for i in range(Nosamples):
             x = xi[i]
             
             kernel_sol = 0 # kernel_sol will be the exact result of the kernel calculated by lineq_solver
@@ -154,7 +158,7 @@ class Kernel_calculator():
         
         return kernel_coeff
     
-    def frequency_kernel_func(self,xi,order,coeff,upperbound = None):
+    def frequency_kernel_func(self,xi,order,coeff):
         
         # This is the function of plugging the kernel_coeff calculated by fitting_kernel_formular into the formular of
         # kernel. this function is not combined with the function below for testing reasons
@@ -171,58 +175,58 @@ class Kernel_calculator():
             
         return numer*(np.cos(2*np.pi*self.l*xi*1)-1)*2/temp
     
-    def fourier_kernel_func(self,xi,order,n,coeff,upperbound = None):
+    def fourier_kernel_func(self,xi,order,n,coeff):
         
         # this is the function of frequency_kernel_func timing cos(2pi l xi) to prepare for the integration to calculate the fouriers coeffecients
         
         
-        return self.frequency_kernel_func(xi,order,coeff,upperbound = None)*np.cos(2*np.pi*n*self.l*xi)
+        return self.frequency_kernel_func(xi,order,coeff)*np.cos(2*np.pi*n*self.l*xi)
             
 
-    def discrete_kernel_calculator(self, order, n, upperbound = None):
+    def discrete_kernel_calculator(self, order, n, upperbound = None,samplenumber = None):
         
         #integration to calculatet the discrete_kernel
         
-        coeff = self.fitting_kernel_formular(order,upperbound = upperbound)[0] #first calculate the fitting coefficients
+        coeff = self.fitting_kernel_formular(order,upperbound = upperbound, samplenumber = samplenumber)[0] #first calculate the fitting coefficients
         
         discrete_kernel = integrate.quad(self.fourier_kernel_func,0,1/self.l, args=(order,n,coeff))
         
         return discrete_kernel
     
-    def plot_test(self,order,upperbound = None):
+    def plot_test(self,order,upperbound = None, samplenumber = None):
         
         # This is used to plot for testing the fourier_kernel_func that needs to be integrated to get the discrete kernel.
         # If there are singularities in the plots, then some parameters in the fitting function have to be changed
         
-        coeff = self.fitting_kernel_formular(order,upperbound = upperbound)[0] #first calculate the fitting coefficients
+        coeff = self.fitting_kernel_formular(order,upperbound = upperbound,samplenumber = samplenumber)[0] #first calculate the fitting coefficients
         
         size = 1000
         x = np.linspace(0,1/self.l,size)  
         y = np.linspace(0,1/self.l,size)
         
         for i in range(size):
-            y[i] = self.frequency_kernel_func(x[i],order,coeff,upperbound = upperbound)
+            y[i] = self.frequency_kernel_func(x[i],order,coeff)
 
         #plt.plot(x,y)
 
         return (x,y)
         
-    def kernel_generator(self,order,tolerance,upperbound = None):
+    def kernel_generator(self,order,tolerance,upperbound = None,samplenumber = None):
         
         # This is used to directly generate an array of discrete kernel that can be directly used for simulation
         
         # assign first 2 dicrete value to any order of the kernel
         nonlocal_kernel = np.zeros(2)
         for i in range(2):
-            nonlocal_kernel[i] = self.discrete_kernel_calculator(order,i+1, upperbound = upperbound)[0]
+            nonlocal_kernel[i] = self.discrete_kernel_calculator(order,i+1, upperbound = upperbound,samplenumber = samplenumber)[0]
             
         ratio = 1
         i = 2
         # if the ratio is too big then it means we need include more discrete kernels
-        while ratio > 1e-3: 
+        while ratio > tolerance: 
             # we assign at least 4 discrete kernels in total
-            nonlocal_kernel = np.append(nonlocal_kernel,self.discrete_kernel_calculator(order,i+1,upperbound = upperbound)[0])
-            nonlocal_kernel = np.append(nonlocal_kernel,self.discrete_kernel_calculator(order,i+2,upperbound = upperbound)[0])
+            nonlocal_kernel = np.append(nonlocal_kernel,self.discrete_kernel_calculator(order,i+1,upperbound = upperbound,samplenumber = samplenumber)[0])
+            nonlocal_kernel = np.append(nonlocal_kernel,self.discrete_kernel_calculator(order,i+2,upperbound = upperbound,samplenumber = samplenumber)[0])
             ratio = nonlocal_kernel[i]/nonlocal_kernel[0]
             i+=2 # generating two disrete kernel for each iteration
         

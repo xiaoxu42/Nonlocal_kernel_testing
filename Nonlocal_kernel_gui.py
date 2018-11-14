@@ -4,7 +4,7 @@ matplotlib.use("TkAgg")
 
 import numpy as np
 
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2TkAgg
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk #NavigationToolbar2TkAgg
 from matplotlib.figure import Figure
 
 from nonlocal_kernel import Kernel_calculator as kc
@@ -104,7 +104,7 @@ class StartPage(tk.Frame):
     def __init__(self, parent, controller):
         tk.Frame.__init__(self, parent)
         label = tk.Label(self,text = "Welcome, please specify the material properties of the composit", font=LARGE_FONT)
-        label.grid(row=0,column = 0, columnspan = 3, pady=10,padx=10)
+        label.grid(row=0,column = 0, columnspan = 3, pady=10, padx=10)
 
         label1 = tk.Label(self, text = "Elastic modulus of material 1 (Pa)")
         label1.grid(row=1,column=0,sticky = "E")
@@ -137,7 +137,7 @@ class StartPage(tk.Frame):
         
 
         button = ttk.Button(self, text = "OK", command=lambda: controller.initialization(e1,e2,e3,e4))
-        button.grid(row=5,column = 2, sticky = "E", pady = 20)
+        button.grid(row=5,column = 10, sticky = "E", pady = 20)
 
         button1 = ttk.Button(self,text = "Kernel Generator", command=lambda: controller.show_frame(PageOne))
         button1.grid(row = 10,column=0,sticky = "W")
@@ -150,6 +150,7 @@ class StartPage(tk.Frame):
 
         # make the buttons placed at bottom
         self.grid_rowconfigure(9, weight = 1)
+        self.grid_columnconfigure(9, weight = 1)
     
 
 class PageOne(tk.Frame):
@@ -199,9 +200,10 @@ class PageOne(tk.Frame):
         # Pops out a new window newwin
         newwin = tk.Toplevel(self)
 
-        self.upperbound = None # This upperbound can be changed by user throught advanced setting
-        
-        kernel = nonlocal_kernel.kernel_generator(self.order, self.tolerance,upperbound = self.upperbound)
+        self.upperbound = None # This upperbound can be changed by user through advanced setting
+        self.samplenumber = None # This can also be changed in advanced setting
+
+        kernel = nonlocal_kernel.kernel_generator(self.order, self.tolerance,upperbound = self.upperbound, samplenumber = self.samplenumber)
         self.discrete_kernel = kernel
         # Display the resulf of discrete kernel
         kernel_string = "Discrete Kernel:" + DisplayArray(kernel)
@@ -219,8 +221,8 @@ class PageOne(tk.Frame):
         # this can be used to check if the result is accurate or not to some extent 
 
         
-        (x,y) =  nonlocal_kernel.plot_test(self.order, upperbound = self.upperbound)
-        self.f = matplotlib.figure.Figure(figsize=(5,4),dpi=200)
+        (x,y) =  nonlocal_kernel.plot_test(self.order, upperbound = self.upperbound, samplenumber = self.samplenumber)
+        self.f = matplotlib.figure.Figure(figsize=(5,4),dpi=100)
         self.a = self.f.add_subplot(111)
         self.a.plot(x,y)
 
@@ -228,7 +230,7 @@ class PageOne(tk.Frame):
         self.canvas1.draw()
         self.canvas1.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=True)
 
-        toolbar = NavigationToolbar2TkAgg(self.canvas1, newwin)
+        toolbar = NavigationToolbar2Tk(self.canvas1, newwin)
         toolbar.update()
         self.canvas1._tkcanvas.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
 
@@ -244,14 +246,21 @@ class PageOne(tk.Frame):
         newwin_ad = tk.Toplevel(self)
 
         label1 = tk.Label(newwin_ad, text="Upperbound = ")
-        label1.grid(row=0,column=0,sticky = "W")
+        label1.grid(row=0,column=0,sticky = "E")
 
         e_ad = tk.Entry(newwin_ad)
         e_ad.grid(row=0,column=1,sticky = "W")
         e_ad.insert(10,"0.4")
 
-        button1 = ttk.Button(newwin_ad, text = "Update the upperbound and Refresh the plot", command =lambda: self.SettingUpperboundandRefresh(e_ad,controller))
-        button1.grid(row=1, column = 1, sticky = "E")
+        label2 = tk.Label(newwin_ad, text="Numer of sample points = ")
+        label2.grid(row=1,column=0,sticky = "E")
+
+        e_ad2 = tk.Entry(newwin_ad)
+        e_ad2.grid(row=1,column=1,sticky = "W")
+        e_ad2.insert(10,"0.4")
+
+        button1 = ttk.Button(newwin_ad, text = "Update the parameters and Refresh the plot", command =lambda: self.SettingUpperboundandRefresh(e_ad,e_ad2,controller))
+        button1.grid(row=2, column = 1, sticky = "E")
 
 
         button2 = ttk.Button(newwin_ad, text="Quit", command=newwin_ad.destroy)
@@ -265,20 +274,21 @@ class PageOne(tk.Frame):
 
         
 
-    def SettingUpperboundandRefresh(self,e,controller):
+    def SettingUpperboundandRefresh(self,e,e2,controller):
         # This function is used to update the plot on canvas1 using the parameter set by the user
 
         self.upperbound = float(e.get())
+        self.samplenumber = int(e2.get())
         nonlocal_kernel = controller.nonlocal_kernel
 
-        kernel = nonlocal_kernel.kernel_generator(self.order, self.tolerance,upperbound = self.upperbound)
+        kernel = nonlocal_kernel.kernel_generator(self.order, self.tolerance,upperbound = self.upperbound, samplenumber = self.samplenumber)
         self.kernel = kernel
         # Update the displayed discrete kernel result
         kernel_string = "Discrete Kernel:" + DisplayArray(kernel)
 
         self.kernel_label.configure(text = kernel_string)
 
-        (x,y) =  nonlocal_kernel.plot_test(self.order, upperbound = self.upperbound)
+        (x,y) =  nonlocal_kernel.plot_test(self.order, upperbound = self.upperbound,samplenumber = self.samplenumber)
         self.a.clear()
         self.a.plot(x,y)
         self.canvas1.draw()
@@ -381,7 +391,7 @@ class PageTwo(tk.Frame):
         size1 = np.size(u_mid)
         t1 = np.linspace(0.0,Ttotal,num = size1)
         
-        self.f = matplotlib.figure.Figure(figsize=(5,4),dpi=200)
+        self.f = matplotlib.figure.Figure(figsize=(5,4),dpi=100)
         self.a = self.f.add_subplot(111)
         self.a.plot(t1,u_mid)
         self.a.set_xlabel('Time ($s$)')
@@ -391,7 +401,7 @@ class PageTwo(tk.Frame):
         self.canvas1.draw()
         self.canvas1.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=True)
 
-        toolbar = NavigationToolbar2TkAgg(self.canvas1, newwin)
+        toolbar = NavigationToolbar2Tk(self.canvas1, newwin)
         toolbar.update()
         self.canvas1._tkcanvas.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
 
@@ -509,7 +519,7 @@ class SimbyUserKernel(tk.Frame):
         size1 = np.size(u_mid)
         t1 = np.linspace(0.0,Ttotal,num = size1)
         
-        self.f = matplotlib.figure.Figure(figsize=(5,4),dpi=200)
+        self.f = matplotlib.figure.Figure(figsize=(5,4),dpi=100)
         self.a = self.f.add_subplot(111)
         self.a.plot(t1,u_mid)
         self.a.set_xlabel('Time ($s$)')
@@ -519,7 +529,7 @@ class SimbyUserKernel(tk.Frame):
         self.canvas1.draw()
         self.canvas1.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=True)
 
-        toolbar = NavigationToolbar2TkAgg(self.canvas1, newwin)
+        toolbar = NavigationToolbar2Tk(self.canvas1, newwin)
         toolbar.update()
         self.canvas1._tkcanvas.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
 
