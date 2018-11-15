@@ -381,6 +381,9 @@ class PageTwo(tk.Frame):
         if controller.displacement_load_data_flag == 0:
             popupmsg("Oops, you haven't defined your Boundary Condition yet, please use the \"import displacement load data\" to define your BC ")
         
+        if controller.displacement_load_data.shape[0] < int(Ttotal/dt):
+            popupmsg("Oops, it seems that your Boundary Condition file does not have enough data for simulating through all time steps")
+
         quick_kernel = nonlocal_kernel.kernel_generator(order,tolerance)    
         nonlocal_kernel_result = sim1D(Eh,rhoave,controller.displacement_load_data,Ttotal,dt,Nnodes)
         u_mid = nonlocal_kernel_result.nonlocal_kernel_middisplacement(quick_kernel)
@@ -558,8 +561,8 @@ def savecompleteresult(nonlocalresult,kernel):
 
 
 
+if __name__ == "__main__":
 
-
-myapp = Mygui()
-#myapp.geometry("1000x500")
-myapp.mainloop()
+    myapp = Mygui()
+    #myapp.geometry("1000x500")
+    myapp.mainloop()
