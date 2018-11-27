@@ -25,10 +25,16 @@ A = 1e-4
 Ttotal = 1e-3
 dt = 1e-8
 Nnodes = int(L/l)
+Tsteps = int(Ttotal/dt)
 # displacement boundary condition
 
 nonlocal_kernel = kc(Eh,Es,rhoh,rhos)
 
+#generate the BC condition array using the BC function defined later
+displacement_load_array = np.zeros(Tsteps)
+for tt in range(Tsteps-1):
+            t = (tt+1)*dt
+            displacement_load_array[tt+1] = displacement_load(t)
 
 #classical peridynamic kernel
 lp = 0.005  # node-spacing in classical peridynamic model
@@ -54,7 +60,7 @@ def displacement_load(t):
     load = P0*b0*t**6*(t-T)**6*(1-np.heaviside(t-T,0))
     return load
 
-nonlocal_kernel_result = sim1D(Eh,rhoave,displacement_load,Ttotal,dt,Nnodes)
+nonlocal_kernel_result = sim1D(Eh,rhoave,displacement_load_array,Ttotal,dt,Nnodes)
 
 # calculating using second order nonlocal kernel
 u_2 = nonlocal_kernel_result.nonlocal_kernel_middisplacement(second_order_kernel)
