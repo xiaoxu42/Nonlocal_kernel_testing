@@ -17,7 +17,6 @@ class Testsimulator_1D(unittest.TestCase):
         # geometric properties
         L = 1
         l = 0.02
-        A = 1e-4
         # simulation parameters
         Ttotal = 1e-3
         dt = 0.2e-9
@@ -44,13 +43,16 @@ class Testsimulator_1D(unittest.TestCase):
         # This is the result calculated by using FEM with extremely fine mesh, we use it as the 'accurate' resulf for comparison
         ureference = np.loadtxt('FEM.dat')
 
-        error_mid = 0
+
+        mid_diff = 0
+        sum_uref = 0
         for tt in range(Tsteps):
-            mid_diff = abs(ureference[tt] - u_4[tt])
-            if mid_diff > error_mid:
-                error_mid = mid_diff
-        
-        assert error_mid<1.5
+            mid_diff += abs(ureference[tt] - u_4[tt])
+            sum_uref +=abs(ureference[tt])
+
+        error_mid = mid_diff/sum_uref
+
+        assert error_mid<0.08
 
 
 # this will be our displacement BC function
