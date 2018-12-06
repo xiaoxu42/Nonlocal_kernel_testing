@@ -30,7 +30,15 @@ Tsteps = int(Ttotal/dt)
 
 nonlocal_kernel = kc(Eh,Es,rhoh,rhos)
 
-#generate the BC condition array using the BC function defined later
+# this will be our displacement BC
+def displacement_load(t):
+    T = 0.157e-3
+    P0 = -50e3
+    b0 = 1e46
+    load = P0*b0*t**6*(t-T)**6*(1-np.heaviside(t-T,0))
+    return load
+
+#generate the BC condition array using the BC function
 displacement_load_array = np.zeros(Tsteps)
 for tt in range(Tsteps-1):
             t = (tt+1)*dt
@@ -52,13 +60,7 @@ second_order_kernel = nonlocal_kernel.kernel_generator(2,tolerance)
 fourth_order_kernel = nonlocal_kernel.kernel_generator(4,tolerance)
 sixth_order_kernel = nonlocal_kernel.kernel_generator(3,tolerance)
 
-# this will be our displacement BC
-def displacement_load(t):
-    T = 0.157e-3
-    P0 = -50e3
-    b0 = 1e46
-    load = P0*b0*t**6*(t-T)**6*(1-np.heaviside(t-T,0))
-    return load
+
 
 nonlocal_kernel_result = sim1D(Eh,rhoave,displacement_load_array,Ttotal,dt,Nnodes)
 
@@ -76,7 +78,7 @@ u_6 = nonlocal_kernel_result.nonlocal_kernel_middisplacement(sixth_order_kernel)
 Eave = 2/(1/Eh+1/Es)
 rhoave = (rhoh+rhos)/2
 Nnodes_p = int(L/lp)
-nonlocal_kernel_result = sim1D(Eave,rhoave,displacement_load,Ttotal,dt,Nnodes_p)
+nonlocal_kernel_result = sim1D(Eave,rhoave,displacement_load_array,Ttotal,dt,Nnodes_p)
 u_p = nonlocal_kernel_result.nonlocal_kernel_middisplacement(kernelp)
 
 
@@ -101,7 +103,7 @@ def uplot(u1,u2,u3,u4,ureference,Ttotal,down,up):
     sizereference =np.size(ureference)
     treference = np.linspace(0.0,Ttotal,num = sizereference) 
     
-    plt.figure(figsize = (8,6), dpi=1200)
+    plt.figure(figsize = (8,6), dpi=100)
     
     lines = plt.subplot(2,2,1)
     l1 = lines.plot(t1,u1,linewidth=1,label='Classical PD kernel')
@@ -145,13 +147,18 @@ def uplot(u1,u2,u3,u4,ureference,Ttotal,down,up):
     plt.setp(lines.get_yticklabels(), visible=False)
     plt.xlabel('Time ($ms$) \n \n (d)')
     plt.tight_layout()
+
+    plt.show()
+
+  
     
     return
 
 
 # In[3]:
 
+if __name__ == "__main__":
 
-uplot(u_p,u_2,u_4,u_6,ureference,Ttotal*1e3,-30,10)
+    uplot(u_p,u_2,u_4,u_6,ureference,Ttotal*1e3,-30,10)
 #plt.savefig('Kernel_comparison.eps',format='eps',dpi=1200)
 
